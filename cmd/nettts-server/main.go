@@ -1,12 +1,10 @@
 package main
 
 import (
+	"encoding/binary"
 	"net"
-	"os"
-	"os/exec"
-	"time"
 
-	ttsserver "github.com/Minizbot2012/TTSServer"
+	"github.com/tzneal/gopicotts"
 )
 
 func main() {
@@ -23,34 +21,19 @@ func main() {
 
 func handleConn(conn net.Conn) {
 	println("New Connection")
-	cmd := exec.Command("pico-tts")
-	r := ttsserver.NewNotify(conn)
-	cmd.Stdin = r
-	cmd.Stdout = conn
-	go func() {
-		err := cmd.Run()
-		if err != nil {
-			println(err.Error())
-		}
-	}()
-	tkr := time.NewTicker(time.Second * 30)
-loop:
+	ttsEngine, _ := gopicotts.NewEngine(gopicotts.DefaultOptions)
+	defer ttsEngine.Close()
+	defer conn.Close()
+	ttsEngine.SetOutput(func(c []int16) {
+		binary.Write(conn, binary.LittleEndian, c)
+	})
 	for {
-		if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
-			r.C <- true
-			break loop
+		buf := make([]byte, 8192)
+		n, e := conn.Read(buf)
+		if e != nil {
+			break
 		}
-		select {
-		case <-tkr.C:
-			continue loop
-		case <-r.C:
-			break loop
-		}
+		ttsEngine.SendText(string(buf[:n]))
+		ttsEngine.FlushSendText()
 	}
-	tkr.Stop()
-	close(r.C)
-	conn.Close()
-	println("Connection Closed")
-	cmd.Process.Signal(os.Interrupt)
-	cmd.Process.Wait()
 }

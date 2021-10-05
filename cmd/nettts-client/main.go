@@ -2,13 +2,13 @@ package main
 
 import (
 	"bufio"
+	"encoding/binary"
 	"flag"
 	"net"
 	"os"
-	"os/exec"
 	"os/signal"
 
-	ttsserver "github.com/Minizbot2012/TTSServer"
+	"github.com/gordonklaus/portaudio"
 )
 
 func main() {
@@ -20,12 +20,17 @@ func main() {
 	}
 	println("Connection opened")
 	defer conn.Close()
-	cmdAPlay := exec.Command("ttsplay.exe")
-	r := ttsserver.NewNotify(conn)
-	cmdAPlay.Stdin = r
-	e = cmdAPlay.Start()
-	if e != nil {
-		panic(e.Error())
+	portaudio.Initialize()
+	defer portaudio.Terminate()
+	out := make([]int16, 1)
+	stream, err := portaudio.OpenDefaultStream(0, 1, 16000, len(out), &out)
+	if err != nil {
+		panic(err)
+	}
+	defer stream.Close()
+	err = stream.Start()
+	if err != nil {
+		panic(err)
 	}
 	go func() {
 		reader := bufio.NewReader(os.Stdin)
@@ -39,22 +44,25 @@ func main() {
 			}
 			if string(buf) == "/exit" {
 				conn.Close()
-				r.C <- true
 				break
 			}
 			conn.Write(buf)
 			conn.Write([]byte("\n"))
 		}
 	}()
+	go func() {
+		for {
+			buf := make([]byte, 32000)
+			n, _ := conn.Read(buf)
+			buf = buf[:n]
+			for len(buf) > 0 {
+				out[0] = int16(binary.LittleEndian.Uint16(buf[:2]))
+				stream.Write()
+				buf = buf[2:]
+			}
+		}
+	}()
 	trm := make(chan os.Signal, 4)
 	signal.Notify(trm)
-	select {
-	case <-r.C:
-		println("Socket closed, shutting down")
-		break
-	case <-trm:
-		break
-	}
-	cmdAPlay.Process.Kill()
-	cmdAPlay.Wait()
+	<-trm
 }
