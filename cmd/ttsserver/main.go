@@ -2,9 +2,9 @@ package main
 
 import (
 	"net"
-	"os"
-	"os/exec"
-	"os/signal"
+
+	"github.com/gordonklaus/portaudio"
+	"github.com/tzneal/gopicotts"
 )
 
 type reader struct {
@@ -21,34 +21,30 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
-	cmdTTS := exec.Command("pico-tts")
-	cmdTTS.Stdin = &reader{conn: listen}
-	ttso, _ := cmdTTS.StdoutPipe()
-	go func() {
-		err := cmdTTS.Run()
-		panic(err)
-	}()
+	ttsEngine, _ := gopicotts.NewEngine(gopicotts.DefaultOptions)
+	defer ttsEngine.Close()
+	portaudio.Initialize()
+	defer portaudio.Terminate()
+	out := make([]int16, 1)
+	stream, err := portaudio.OpenDefaultStream(0, 1, 16000, len(out), &out)
+	defer stream.Close()
 	if err != nil {
 		panic(err)
 	}
-	cmdAPlay := exec.Command("ttsplay")
-	cmdAPlay.Stdin = ttso
-	cmdAPlay.Stderr = os.Stdout
-	cmdAPlay.Stdout = os.Stdout
-	go func() {
-		err := cmdAPlay.Run()
-		panic(err)
-	}()
+	err = stream.Start()
 	if err != nil {
 		panic(err)
 	}
-	var kill = make(chan os.Signal, 1)
-	signal.Notify(kill, os.Interrupt)
-	<-kill
-	if err != nil {
-		panic(err)
+	ttsEngine.SetOutput(func(c []int16) {
+		for _, v := range c {
+			out[0] = v
+			stream.Write()
+		}
+	})
+	for {
+		buf := make([]byte, 1024)
+		n, _, _ := listen.ReadFrom(buf)
+		ttsEngine.SendText(string(buf[:n]))
+		ttsEngine.FlushSendText()
 	}
-	cmdAPlay.Process.Kill()
-	cmdTTS.Process.Kill()
 }
