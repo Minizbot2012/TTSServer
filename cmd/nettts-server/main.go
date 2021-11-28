@@ -1,14 +1,19 @@
 package main
 
 import (
-	"encoding/binary"
+	"bufio"
 	"net"
+	"time"
 
+	ttsserver "github.com/Minizbot2012/TTSServer"
 	"github.com/tzneal/gopicotts"
 )
 
 func main() {
-	listen, _ := net.Listen("tcp", "0.0.0.0:5555")
+	listen, err := net.Listen("tcp", "0.0.0.0:5555")
+	if err != nil {
+		panic(err.Error())
+	}
 	for {
 		conn, err := listen.Accept()
 		if err != nil {
@@ -21,19 +26,35 @@ func main() {
 
 func handleConn(conn net.Conn) {
 	println("New Connection")
-	ttsEngine, _ := gopicotts.NewEngine(gopicotts.DefaultOptions)
-	defer ttsEngine.Close()
-	defer conn.Close()
+	ttsEngine, err := gopicotts.NewEngine(gopicotts.DefaultOptions)
+	if err != nil {
+		println(err.Error())
+		conn.Close()
+		return
+	}
+	conn.SetDeadline(time.Time{})
+	bwcon := bufio.NewWriterSize(conn, 65536)
+	brcon := bufio.NewReaderSize(conn, 65536)
 	ttsEngine.SetOutput(func(c []int16) {
-		binary.Write(conn, binary.LittleEndian, c)
+		err := ttsserver.SendTTSResponse(bwcon, c)
+		if err != nil {
+			println("SEND ERROR " + err.Error())
+		}
+		err = bwcon.Flush()
+		if err != nil {
+			println("FLUSH ERROR" + err.Error())
+		}
 	})
 	for {
-		buf := make([]byte, 8192)
-		n, e := conn.Read(buf)
-		if e != nil {
+		Req, err := ttsserver.RecvTTSRequest(brcon)
+		if err != nil {
+			println(err.Error())
 			break
 		}
-		ttsEngine.SendText(string(buf[:n]))
+		ttsEngine.SendText(Req.Request)
 		ttsEngine.FlushSendText()
 	}
+	conn.Close()
+	ttsEngine.Close()
+	println("Connection Closed!")
 }

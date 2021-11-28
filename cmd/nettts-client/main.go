@@ -2,12 +2,13 @@ package main
 
 import (
 	"bufio"
-	"encoding/binary"
 	"flag"
 	"net"
 	"os"
 	"os/signal"
+	"time"
 
+	ttsserver "github.com/Minizbot2012/TTSServer"
 	"github.com/gordonklaus/portaudio"
 )
 
@@ -18,8 +19,9 @@ func main() {
 	if e != nil {
 		panic(e.Error())
 	}
-	println("Connection opened")
+	conn.SetDeadline(time.Time{})
 	defer conn.Close()
+	println("Connection opened")
 	portaudio.Initialize()
 	defer portaudio.Terminate()
 	out := make([]int16, 1)
@@ -29,36 +31,39 @@ func main() {
 	}
 	defer stream.Close()
 	err = stream.Start()
+	brcon := bufio.NewReaderSize(conn, 65536)
+	bwcon := bufio.NewWriterSize(conn, 65536)
 	if err != nil {
 		panic(err)
 	}
 	go func() {
 		reader := bufio.NewReader(os.Stdin)
 		for {
-			buf, _ := reader.ReadBytes('\n')
-			if buf[len(buf)-1] == '\n' {
-				buf = buf[:len(buf)-1]
-			}
-			if buf[len(buf)-1] == '\r' {
-				buf = buf[:len(buf)-1]
-			}
-			if string(buf) == "/exit" {
-				conn.Close()
+			buf, _ := reader.ReadString('\n')
+			err := ttsserver.SendTTSRequest(bwcon, buf)
+			if err != nil {
+				println("SEND ERROR " + err.Error())
 				break
 			}
-			conn.Write(buf)
-			conn.Write([]byte("\n"))
+			err = bwcon.Flush()
+			if err != nil {
+				println("FLUSH ERROR" + err.Error())
+				break
+			}
 		}
 	}()
 	go func() {
 		for {
-			buf := make([]byte, 32000)
-			n, _ := conn.Read(buf)
-			buf = buf[:n]
+			resp, err := ttsserver.RecvTTSResponse(brcon)
+			if err != nil {
+				println(err.Error())
+				break
+			}
+			buf := resp.TTSData
 			for len(buf) > 0 {
-				out[0] = int16(binary.LittleEndian.Uint16(buf[:2]))
-				stream.Write()
-				buf = buf[2:]
+				out[0] = buf[0]
+				//stream.Write()
+				buf = buf[1:]
 			}
 		}
 	}()
