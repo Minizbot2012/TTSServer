@@ -1,23 +1,14 @@
 package main
 
 import (
-	"encoding/binary"
 	"flag"
 	"net"
 	"os"
 	"os/signal"
 
+	ttsserver "github.com/Minizbot2012/TTSServer"
 	"github.com/gordonklaus/portaudio"
 )
-
-type reader struct {
-	conn net.PacketConn
-}
-
-func (r *reader) Read(d []byte) (int, error) {
-	b, _, e := r.conn.ReadFrom(d)
-	return b, e
-}
 
 func main() {
 	listen, err := net.ListenPacket("udp", ":5555")
@@ -54,13 +45,16 @@ func main() {
 	}()
 	go func() {
 		for {
-			buf := make([]byte, 32000)
-			n, _ := conn.Read(buf)
-			buf = buf[:n]
+			resp, err := ttsserver.RecvTTSResponse(conn)
+			if err != nil {
+				println(e.Error())
+				break
+			}
+			buf := resp.TTSData
 			for len(buf) > 0 {
-				out[0] = int16(binary.LittleEndian.Uint16(buf[:2]))
+				out[0] = buf[0]
 				stream.Write()
-				buf = buf[2:]
+				buf = buf[1:]
 			}
 		}
 	}()
