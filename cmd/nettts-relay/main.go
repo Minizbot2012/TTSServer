@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"net"
 	"os"
 	"os/signal"
+	"time"
 
 	ttsserver "github.com/Minizbot2012/TTSServer"
 	"github.com/gordonklaus/portaudio"
@@ -21,6 +23,7 @@ func main() {
 	if e != nil {
 		panic(e.Error())
 	}
+	conn.SetDeadline(time.Time{})
 	println("Connection opened")
 	defer conn.Close()
 	portaudio.Initialize()
@@ -35,17 +38,20 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	brcon := bufio.NewReaderSize(conn, 65536)
+	bwcon := bufio.NewWriterSize(conn, 65536)
 	go func() {
 		for {
 			buf := make([]byte, 1024)
 			n, _, _ := listen.ReadFrom(buf)
 			buf = buf[:n]
-			conn.Write(buf)
+			ttsserver.SendTTSRequest(bwcon, string(buf))
+			bwcon.Flush()
 		}
 	}()
 	go func() {
 		for {
-			resp, err := ttsserver.RecvTTSResponse(conn)
+			resp, err := ttsserver.RecvTTSResponse(brcon)
 			if err != nil {
 				println(e.Error())
 				break

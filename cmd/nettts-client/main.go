@@ -62,7 +62,7 @@ func main() {
 			buf := resp.TTSData
 			for len(buf) > 0 {
 				out[0] = buf[0]
-				//stream.Write()
+				stream.Write()
 				buf = buf[1:]
 			}
 		}
