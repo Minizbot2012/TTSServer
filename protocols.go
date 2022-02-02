@@ -18,7 +18,7 @@ func SendTTSRequest(conn io.Writer, Req string) error {
 }
 
 func RecvTTSRequest(conn io.Reader) (*TTSRequest, error) {
-	req := new(TTSRequest)
+	req := &TTSRequest{}
 	_, e := minxdr.Unmarshal(conn, req)
 	if e != nil {
 		println("REQ: DEC: " + e.Error())
@@ -43,7 +43,7 @@ func SendTTSResponse(conn io.Writer, Data []int16) error {
 }
 
 func RecvTTSResponse(conn io.Reader) (*TTSResponse, error) {
-	resp := new(TTSResponse)
+	resp := &TTSResponse{}
 	_, e := minxdr.Unmarshal(conn, resp)
 	if e != nil {
 		return nil, e

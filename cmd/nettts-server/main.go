@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"net"
-	"time"
 
 	ttsserver "github.com/Minizbot2012/TTSServer"
 	"github.com/tzneal/gopicotts"
@@ -32,7 +31,6 @@ func handleConn(conn net.Conn) {
 		conn.Close()
 		return
 	}
-	conn.SetDeadline(time.Time{})
 	bwcon := bufio.NewWriterSize(conn, 65536)
 	brcon := bufio.NewReaderSize(conn, 65536)
 	ttsEngine.SetOutput(func(c []int16) {
