@@ -6,7 +6,6 @@ import (
 	"net"
 	"os"
 	"os/signal"
-	"time"
 
 	ttsserver "github.com/Minizbot2012/TTSServer"
 	"github.com/gordonklaus/portaudio"
@@ -19,7 +18,6 @@ func main() {
 	if e != nil {
 		panic(e.Error())
 	}
-	conn.SetDeadline(time.Time{})
 	defer conn.Close()
 	println("Connection opened")
 	portaudio.Initialize()
@@ -29,13 +27,18 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	defer stream.Close()
 	err = stream.Start()
-	brcon := bufio.NewReaderSize(conn, 65536)
-	bwcon := bufio.NewWriterSize(conn, 65536)
 	if err != nil {
 		panic(err)
 	}
+	defer stream.Close()
+	brcon := bufio.NewReaderSize(conn, 65536)
+	bwcon := bufio.NewWriterSize(conn, 65536)
+	if err != nil {
+		println(err.Error())
+	}
+	trm := make(chan os.Signal, 4)
+	signal.Notify(trm)
 	go func() {
 		reader := bufio.NewReader(os.Stdin)
 		for {
@@ -67,7 +70,5 @@ func main() {
 			}
 		}
 	}()
-	trm := make(chan os.Signal, 4)
-	signal.Notify(trm)
 	<-trm
 }

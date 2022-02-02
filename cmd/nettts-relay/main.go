@@ -3,10 +3,10 @@ package main
 import (
 	"bufio"
 	"flag"
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
-	"time"
 
 	ttsserver "github.com/Minizbot2012/TTSServer"
 	"github.com/gordonklaus/portaudio"
@@ -19,25 +19,29 @@ func main() {
 	}
 	ip := flag.String("ip", "192.168.10.50:5555", "IP:port of the server")
 	flag.Parse()
-	conn, e := net.Dial("tcp", *ip)
-	if e != nil {
-		panic(e.Error())
+	conn, err := net.Dial("tcp", *ip)
+	if err != nil {
+		panic(err.Error())
 	}
-	conn.SetDeadline(time.Time{})
 	println("Connection opened")
 	defer conn.Close()
-	portaudio.Initialize()
+	err = portaudio.Initialize()
+	if err != nil {
+		panic(err.Error())
+	}
 	defer portaudio.Terminate()
 	out := make([]int16, 1)
 	stream, err := portaudio.OpenDefaultStream(0, 1, 16000, len(out), &out)
 	if err != nil {
 		panic(err)
 	}
-	defer stream.Close()
 	err = stream.Start()
 	if err != nil {
 		panic(err)
 	}
+	trm := make(chan os.Signal, 4)
+	signal.Notify(trm)
+	defer stream.Close()
 	brcon := bufio.NewReaderSize(conn, 65536)
 	bwcon := bufio.NewWriterSize(conn, 65536)
 	go func() {
@@ -53,7 +57,7 @@ func main() {
 		for {
 			resp, err := ttsserver.RecvTTSResponse(brcon)
 			if err != nil {
-				println(e.Error())
+				fmt.Println(err.Error())
 				break
 			}
 			buf := resp.TTSData
@@ -64,7 +68,5 @@ func main() {
 			}
 		}
 	}()
-	trm := make(chan os.Signal, 4)
-	signal.Notify(trm)
 	<-trm
 }

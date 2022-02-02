@@ -7,15 +7,6 @@ import (
 	"github.com/tzneal/gopicotts"
 )
 
-type reader struct {
-	conn net.PacketConn
-}
-
-func (r *reader) Read(d []byte) (int, error) {
-	b, _, e := r.conn.ReadFrom(d)
-	return b, e
-}
-
 func main() {
 	listen, err := net.ListenPacket("udp", ":5555")
 	if err != nil {
@@ -27,7 +18,6 @@ func main() {
 	defer portaudio.Terminate()
 	out := make([]int16, 1)
 	stream, err := portaudio.OpenDefaultStream(0, 1, 16000, len(out), &out)
-	defer stream.Close()
 	if err != nil {
 		panic(err)
 	}
@@ -35,6 +25,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer stream.Close()
 	ttsEngine.SetOutput(func(c []int16) {
 		for _, v := range c {
 			out[0] = v
