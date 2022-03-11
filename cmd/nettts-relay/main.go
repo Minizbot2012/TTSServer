@@ -40,7 +40,7 @@ func main() {
 		panic(err)
 	}
 	trm := make(chan os.Signal, 4)
-	signal.Notify(trm)
+	signal.Notify(trm, os.Interrupt)
 	defer stream.Close()
 	brcon := bufio.NewReaderSize(conn, 65536)
 	bwcon := bufio.NewWriterSize(conn, 65536)
