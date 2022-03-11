@@ -38,7 +38,7 @@ func main() {
 		println(err.Error())
 	}
 	trm := make(chan os.Signal, 4)
-	signal.Notify(trm)
+	signal.Notify(trm, os.Interrupt)
 	go func() {
 		reader := bufio.NewReader(os.Stdin)
 		for {
