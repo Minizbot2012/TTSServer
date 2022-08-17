@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"net"
@@ -41,10 +43,20 @@ func main() {
 	}
 	println("Connection opened")
 	defer conn.Close()
-	out := make([]int16, 48000/5)
 	var stream *portaudio.Stream
+	brcon := bufio.NewReaderSize(conn, 65536)
+	bwcon := bufio.NewWriterSize(conn, 65536)
+	buf := new(bytes.Buffer)
+	recvAudio := func(out [][]int16) {
+		for i := range out[0] {
+			var i16 int16
+			binary.Read(buf, binary.LittleEndian, &i16)
+			out[0][i] = i16
+			out[1][i] = i16
+		}
+	}
 	if *devName == "" {
-		stream, err = portaudio.OpenDefaultStream(0, 1, 48000, len(out), &out)
+		stream, err = portaudio.OpenDefaultStream(0, 2, 48000, 0, recvAudio)
 		if err != nil {
 			panic(err)
 		}
@@ -53,11 +65,11 @@ func main() {
 		for _, deic := range dev {
 			if deic.Name == *devName {
 				sp := portaudio.HighLatencyParameters(nil, deic)
-				sp.Output.Channels = 1
+				sp.Output.Channels = 2
 				sp.Input.Channels = 0
 				sp.SampleRate = 48000
-				sp.FramesPerBuffer = len(out)
-				stream, err = portaudio.OpenStream(sp, &out)
+				sp.FramesPerBuffer = 0
+				stream, err = portaudio.OpenStream(sp, recvAudio)
 				if err != nil {
 					panic(err)
 				}
@@ -70,10 +82,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	trm := make(chan os.Signal, 48000/5)
+	trm := make(chan os.Signal, 1)
 	signal.Notify(trm, os.Interrupt)
-	brcon := bufio.NewReaderSize(conn, 65536)
-	bwcon := bufio.NewWriterSize(conn, 65536)
 	go func() {
 		for {
 			buf := make([]byte, 1024)
@@ -84,68 +94,29 @@ func main() {
 		}
 	}()
 	go func() {
-		bw := bufwriter{out, stream, 0}
-		if err != nil {
-			panic(err)
-		}
 		for {
 			resp, err := ttsserver.RecvTTSResponse(brcon)
 			if err != nil {
 				fmt.Println(err.Error())
 				break
 			}
-			bw.processSpeechData(resp.TTSData)
+			binary.Write(buf, binary.LittleEndian, upscaleAudio(resp.TTSData))
 		}
 	}()
 	<-trm
 }
 
-type bufwriter struct {
-	output []int16
-	stream *portaudio.Stream
-	pos    int
-}
-
-func (b *bufwriter) processSpeechData(input []int16) {
-	rem := len(input)
-	offset := 0
-	for rem > 0 {
-		// copy our input speech data to the portaudio buffer
-		// upsample from 16000 hz to 48000 hz
-		n := 0
-		in, out := offset, b.pos
-		for {
-			if in >= len(input) {
-				break
-			}
-			if out >= len(b.output) {
-				break
-			}
-			b.output[out] = input[in]
-			if out > 0 && in > 0 {
-				prev := input[in-1]
-				cur := input[in]
-				delta := int(cur - prev)
-				b.output[out-2] = input[in] - int16(2*delta/3)
-				b.output[out-1] = input[in] - int16(delta/3)
-			}
-			in += 1
-			out += 3
-			n++
-		}
-		b.pos = out
-		rem -= n
-		offset += n
-		if n == 0 {
-			if err := b.stream.Write(); err != nil {
-				fmt.Println(err)
-			}
-			b.pos = 0
-			// portaudio has the data now, so clear our buffer to prevent a
-			// flush in main from replaying remaining data.
-			for i := 0; i < len(b.output); i++ {
-				b.output[i] = 0
-			}
+func upscaleAudio(in []int16) (output []int16) {
+	output = make([]int16, len(in)*3)
+	for i, o := 0, 0; i < len(in); i, o = i+1, o+3 {
+		output[o] = in[i]
+		if o > 0 && i > 0 {
+			prev := in[i-1]
+			cur := in[i]
+			delta := int(cur - prev)
+			output[o-2] = in[i] - int16(2*delta/3)
+			output[o-1] = in[i] - int16(delta/3)
 		}
 	}
+	return output
 }
