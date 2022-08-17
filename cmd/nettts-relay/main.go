@@ -109,14 +109,14 @@ func main() {
 
 func upscaleAudio(in []int16) (output []float32) {
 	output = make([]float32, len(in)*3)
-	for i, o := 0, 0; i < len(in); i, o = i+1, o+3 {
-		output[o] = float32(in[i]) / float32(math.MaxInt16)
-		if o > 0 && i > 0 {
-			prev := float32(in[i-1]) / float32(math.MaxInt16)
-			cur := float32(in[i]) / float32(math.MaxInt16)
+	for o := 0; o < len(output); o += 3 {
+		output[o] = float32(in[o/3]) / float32(math.MaxInt16)
+		if o > 0 {
+			prev := float32(in[o/3-1]) / float32(math.MaxInt16)
+			cur := float32(in[o/3]) / float32(math.MaxInt16)
 			delta := cur - prev
-			output[o-2] = (float32(in[i]) / float32(math.MaxInt16)) - 2.0*(delta/3.0)
-			output[o-1] = (float32(in[i]) / float32(math.MaxInt16)) - delta/3.0
+			output[o-2] = (float32(in[o/3]) / float32(math.MaxInt16)) - 2.0*(delta/3.0)
+			output[o-1] = (float32(in[o/3]) / float32(math.MaxInt16)) - delta/3.0
 		}
 	}
 	return output
