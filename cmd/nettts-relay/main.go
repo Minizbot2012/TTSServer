@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"os/signal"
@@ -47,9 +48,9 @@ func main() {
 	brcon := bufio.NewReaderSize(conn, 65536)
 	bwcon := bufio.NewWriterSize(conn, 65536)
 	buf := new(bytes.Buffer)
-	recvAudio := func(out [][]int16) {
+	recvAudio := func(out [][]float32) {
 		for i := range out[0] {
-			var i16 int16
+			var i16 float32
 			binary.Read(buf, binary.LittleEndian, &i16)
 			out[0][i] = i16
 			out[1][i] = i16
@@ -107,16 +108,16 @@ func main() {
 	<-trm
 }
 
-func upscaleAudio(in []int16) (output []int16) {
-	output = make([]int16, len(in)*3)
+func upscaleAudio(in []int16) (output []float32) {
+	output = make([]float32, len(in)*3)
 	for i, o := 0, 0; i < len(in); i, o = i+1, o+3 {
-		output[o] = in[i]
+		output[o] = float32(in[i]) / float32(math.MaxInt16)
 		if o > 0 && i > 0 {
-			prev := in[i-1]
-			cur := in[i]
+			prev := float32(in[i-1]) / float32(math.MaxInt16)
+			cur := float32(in[i]) / float32(math.MaxInt16)
 			delta := cur - prev
-			output[o-2] = in[i] - 2*(delta/3)
-			output[o-1] = in[i] - delta/3
+			output[o-2] = (float32(in[i]) / float32(math.MaxInt16)) - 2.0*(delta/3.0)
+			output[o-1] = (float32(in[i]) / float32(math.MaxInt16)) - delta/3.0
 		}
 	}
 	return output
