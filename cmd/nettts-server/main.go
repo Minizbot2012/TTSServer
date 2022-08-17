@@ -26,9 +26,10 @@ func main() {
 func handleConn(conn net.Conn) {
 	println("New Connection")
 	ttsEngine, err := gopicotts.NewEngine(gopicotts.DefaultOptions)
+	defer conn.Close()
+	defer ttsEngine.Close()
 	if err != nil {
 		println(err.Error())
-		conn.Close()
 		return
 	}
 	bwcon := bufio.NewWriterSize(conn, 65536)
@@ -44,15 +45,13 @@ func handleConn(conn net.Conn) {
 		}
 	})
 	for {
-		Req, err := ttsserver.RecvTTSRequest(brcon)
+		req, err := ttsserver.RecvTTSRequest(brcon)
 		if err != nil {
 			println(err.Error())
 			break
 		}
-		ttsEngine.SendText(Req.Request)
+		ttsEngine.SendText(req.Request)
 		ttsEngine.FlushSendText()
 	}
-	conn.Close()
-	ttsEngine.Close()
 	println("Connection Closed!")
 }
