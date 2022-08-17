@@ -76,6 +76,7 @@ func main() {
 				break
 			}
 		}
+		buf.Reset()
 	}
 	err = stream.Start()
 	defer stream.Close()
