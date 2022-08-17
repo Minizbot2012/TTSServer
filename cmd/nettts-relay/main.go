@@ -114,9 +114,9 @@ func upscaleAudio(in []int16) (output []int16) {
 		if o > 0 && i > 0 {
 			prev := in[i-1]
 			cur := in[i]
-			delta := int(cur - prev)
-			output[o-2] = in[i] - int16(2*delta/3)
-			output[o-1] = in[i] - int16(delta/3)
+			delta := cur - prev
+			output[o-2] = in[i] - 2*(delta/3)
+			output[o-1] = in[i] - delta/3
 		}
 	}
 	return output
