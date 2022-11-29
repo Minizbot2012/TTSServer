@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
 	ttsserver "github.com/Minizbot2012/TTSServer"
 	"github.com/gorilla/websocket"
@@ -46,6 +47,7 @@ func handleConn(conn *websocket.Conn) {
 		println(err.Error())
 		return
 	}
+	keepAlive(conn, time.Second*10)
 	ttsEngine.SetOutput(func(c []int16) {
 		err := ttsserver.SendTTSResponse(conn, c)
 		if err != nil {
@@ -65,4 +67,26 @@ func handleConn(conn *websocket.Conn) {
 		ttsEngine.FlushSendText()
 	}
 	println("Connection Closed!")
+}
+
+func keepAlive(c *websocket.Conn, timeout time.Duration) {
+	lastResponse := time.Now()
+	c.SetPongHandler(func(msg string) error {
+		lastResponse = time.Now()
+		return nil
+	})
+
+	go func() {
+		for {
+			err := c.WriteMessage(websocket.PingMessage, []byte("keepalive"))
+			if err != nil {
+				return
+			}
+			time.Sleep(timeout / 2)
+			if time.Since(lastResponse) > timeout {
+				c.Close()
+				return
+			}
+		}
+	}()
 }

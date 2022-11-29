@@ -84,6 +84,10 @@ func main() {
 	}
 	trm := make(chan os.Signal, 1)
 	signal.Notify(trm, os.Interrupt)
+	conn.SetPingHandler(func(appData string) error {
+		e := conn.WriteMessage(websocket.PongMessage, []byte(appData))
+		return e
+	})
 	go func() {
 		for {
 			buf := make([]byte, 1024)
