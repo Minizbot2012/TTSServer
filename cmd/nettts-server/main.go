@@ -40,17 +40,16 @@ func main() {
 func handleConn(conn *websocket.Conn) {
 	println("New Connection")
 	ttsEngine, err := gopicotts.NewEngine(gopicotts.DefaultOptions)
-	conn.SetPingHandler(func(appData string) error {
-		e := conn.WriteMessage(websocket.PongMessage, []byte(appData))
-		return e
-	})
 	defer conn.Close()
 	defer ttsEngine.Close()
 	if err != nil {
 		println(err.Error())
 		return
 	}
-
+	conn.SetPingHandler(func(appData string) error {
+		e := conn.WriteMessage(websocket.PongMessage, []byte(appData))
+		return e
+	})
 	ttsEngine.SetOutput(func(c []int16) {
 		err := ttsserver.SendTTSResponse(conn, c)
 		if err != nil {

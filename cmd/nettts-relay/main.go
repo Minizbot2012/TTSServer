@@ -23,23 +23,12 @@ func main() {
 		panic(err)
 	}
 	ip := flag.String("ip", "ws://nettts.mserv.kab/ws", "IP:port of the server")
-	devName := flag.String("out", "", "Device output name")
-	list := flag.Bool("list", false, "List devices")
 	flag.Parse()
 	err = portaudio.Initialize()
 	if err != nil {
 		panic(err.Error())
 	}
 	defer portaudio.Terminate()
-	if *list {
-		dev, _ := portaudio.Devices()
-		for _, deic := range dev {
-			if deic.MaxOutputChannels > 0 {
-				fmt.Println(deic.Name)
-			}
-		}
-		os.Exit(0)
-	}
 	conn, _, err := websocket.DefaultDialer.Dial(*ip, http.Header{})
 	if err != nil {
 		panic(err.Error())
@@ -56,27 +45,9 @@ func main() {
 			out[1][i] = i16
 		}
 	}
-	if *devName == "" {
-		stream, err = portaudio.OpenDefaultStream(0, 2, 48000, 0, recvAudio)
-		if err != nil {
-			panic(err)
-		}
-	} else {
-		dev, _ := portaudio.Devices()
-		for _, deic := range dev {
-			if deic.Name == *devName {
-				sp := portaudio.HighLatencyParameters(nil, deic)
-				sp.Output.Channels = 2
-				sp.Input.Channels = 0
-				sp.SampleRate = 48000
-				sp.FramesPerBuffer = 0
-				stream, err = portaudio.OpenStream(sp, recvAudio)
-				if err != nil {
-					panic(err)
-				}
-				break
-			}
-		}
+	stream, err = portaudio.OpenDefaultStream(0, 2, 48000, 0, recvAudio)
+	if err != nil {
+		panic(err)
 	}
 	err = stream.Start()
 	defer stream.Close()
@@ -85,7 +56,6 @@ func main() {
 	}
 	trm := make(chan os.Signal, 1)
 	signal.Notify(trm, os.Interrupt)
-	keepAlive(conn, time.Second*10)
 	go func() {
 		for {
 			buf := make([]byte, 1024)
@@ -104,6 +74,7 @@ func main() {
 			binary.Write(buf, binary.LittleEndian, upscaleAudio(resp.TTSData))
 		}
 	}()
+	keepAlive(conn, time.Second*10)
 	<-trm
 }
 
