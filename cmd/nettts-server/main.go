@@ -58,5 +58,5 @@ func handleConn(conn *websocket.Conn) {
 		ttsEngine.SendText(req.Request)
 		ttsEngine.FlushSendText()
 	}
-	println("Connection Closed!")
+	log.Println("Connection Closed!")
 }
