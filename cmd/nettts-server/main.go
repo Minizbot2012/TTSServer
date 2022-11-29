@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net/http"
-	"time"
 
 	ttsserver "github.com/Minizbot2012/TTSServer"
 	"github.com/gorilla/websocket"
@@ -41,13 +40,17 @@ func main() {
 func handleConn(conn *websocket.Conn) {
 	println("New Connection")
 	ttsEngine, err := gopicotts.NewEngine(gopicotts.DefaultOptions)
+	conn.SetPingHandler(func(appData string) error {
+		e := conn.WriteMessage(websocket.PongMessage, []byte(appData))
+		return e
+	})
 	defer conn.Close()
 	defer ttsEngine.Close()
 	if err != nil {
 		println(err.Error())
 		return
 	}
-	keepAlive(conn, time.Second*10)
+
 	ttsEngine.SetOutput(func(c []int16) {
 		err := ttsserver.SendTTSResponse(conn, c)
 		if err != nil {
@@ -66,27 +69,6 @@ func handleConn(conn *websocket.Conn) {
 		ttsEngine.SendText(req.Request)
 		ttsEngine.FlushSendText()
 	}
+
 	println("Connection Closed!")
-}
-
-func keepAlive(c *websocket.Conn, timeout time.Duration) {
-	lastResponse := time.Now()
-	c.SetPongHandler(func(msg string) error {
-		lastResponse = time.Now()
-		return nil
-	})
-
-	go func() {
-		for {
-			err := c.WriteMessage(websocket.PingMessage, []byte("keepalive"))
-			if err != nil {
-				return
-			}
-			time.Sleep(timeout / 2)
-			if time.Since(lastResponse) > timeout {
-				c.Close()
-				return
-			}
-		}
-	}()
 }

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 
 	ttsserver "github.com/Minizbot2012/TTSServer"
 	"github.com/gordonklaus/portaudio"
@@ -36,6 +37,7 @@ func main() {
 	if err != nil {
 		println(err.Error())
 	}
+	keepAlive(conn, time.Second*10)
 	trm := make(chan os.Signal, 4)
 	signal.Notify(trm, os.Interrupt)
 	go func() {
@@ -69,4 +71,26 @@ func main() {
 		}
 	}()
 	<-trm
+}
+
+func keepAlive(c *websocket.Conn, timeout time.Duration) {
+	lastResponse := time.Now()
+	c.SetPongHandler(func(msg string) error {
+		lastResponse = time.Now()
+		return nil
+	})
+
+	go func() {
+		for {
+			err := c.WriteMessage(websocket.PingMessage, []byte("keepalive"))
+			if err != nil {
+				return
+			}
+			time.Sleep(timeout / 2)
+			if time.Since(lastResponse) > timeout {
+				c.Close()
+				return
+			}
+		}
+	}()
 }

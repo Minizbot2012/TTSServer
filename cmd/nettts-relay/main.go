@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 
 	ttsserver "github.com/Minizbot2012/TTSServer"
 	"github.com/gordonklaus/portaudio"
@@ -84,10 +85,7 @@ func main() {
 	}
 	trm := make(chan os.Signal, 1)
 	signal.Notify(trm, os.Interrupt)
-	conn.SetPingHandler(func(appData string) error {
-		e := conn.WriteMessage(websocket.PongMessage, []byte(appData))
-		return e
-	})
+	keepAlive(conn, time.Second*10)
 	go func() {
 		for {
 			buf := make([]byte, 1024)
@@ -107,6 +105,28 @@ func main() {
 		}
 	}()
 	<-trm
+}
+
+func keepAlive(c *websocket.Conn, timeout time.Duration) {
+	lastResponse := time.Now()
+	c.SetPongHandler(func(msg string) error {
+		lastResponse = time.Now()
+		return nil
+	})
+
+	go func() {
+		for {
+			err := c.WriteMessage(websocket.PingMessage, []byte("keepalive"))
+			if err != nil {
+				return
+			}
+			time.Sleep(timeout / 2)
+			if time.Since(lastResponse) > timeout {
+				c.Close()
+				return
+			}
+		}
+	}()
 }
 
 func upscaleAudio(in []int16) (output []float32) {
