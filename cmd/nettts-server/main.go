@@ -2,25 +2,41 @@ package main
 
 import (
 	"bufio"
+	"log"
 	"net"
+	"net/http"
 
 	ttsserver "github.com/Minizbot2012/TTSServer"
+	"github.com/gorilla/websocket"
 	"github.com/tzneal/gopicotts"
 )
 
-func main() {
-	listen, err := net.Listen("tcp", "0.0.0.0:5555")
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(r *http.Request) bool { return true },
+}
+
+func wsEndpoint(w http.ResponseWriter, r *http.Request) {
+	// upgrade this connection to a WebSocket
+	// connection
+	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		panic(err.Error())
+		log.Println(err)
 	}
-	for {
-		conn, err := listen.Accept()
-		if err != nil {
-			println(err.Error())
-		} else {
-			go handleConn(conn)
-		}
+
+	log.Println("Client Connected")
+	if err != nil {
+		log.Println(err)
 	}
+	// listen indefinitely for new messages coming
+	// through on our WebSocket connection
+	handleConn(ws.UnderlyingConn())
+}
+
+func main() {
+	http.HandleFunc("/ws", wsEndpoint)
+	http.ListenAndServe(":5555", nil)
 }
 
 func handleConn(conn net.Conn) {

@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 
 	ttsserver "github.com/Minizbot2012/TTSServer"
 	"github.com/gordonklaus/portaudio"
+	"github.com/gorilla/websocket"
 )
 
 func main() {
@@ -20,7 +22,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	ip := flag.String("ip", "192.168.10.50:5555", "IP:port of the server")
+	ip := flag.String("ip", "ws://nettts.mserv.kab/ws", "IP:port of the server")
 	devName := flag.String("out", "", "Device output name")
 	list := flag.Bool("list", false, "List devices")
 	flag.Parse()
@@ -38,15 +40,15 @@ func main() {
 		}
 		os.Exit(0)
 	}
-	conn, err := net.Dial("tcp", *ip)
+	conn, _, err := websocket.DefaultDialer.Dial(*ip, http.Header{})
 	if err != nil {
 		panic(err.Error())
 	}
 	println("Connection opened")
 	defer conn.Close()
 	var stream *portaudio.Stream
-	brcon := bufio.NewReaderSize(conn, 65536)
-	bwcon := bufio.NewWriterSize(conn, 65536)
+	brcon := bufio.NewReaderSize(conn.UnderlyingConn(), 65536)
+	bwcon := bufio.NewWriterSize(conn.UnderlyingConn(), 65536)
 	buf := new(bytes.Buffer)
 	recvAudio := func(out [][]float32) {
 		for i := range out[0] {

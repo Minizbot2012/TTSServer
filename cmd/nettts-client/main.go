@@ -3,18 +3,19 @@ package main
 import (
 	"bufio"
 	"flag"
-	"net"
+	"net/http"
 	"os"
 	"os/signal"
 
 	ttsserver "github.com/Minizbot2012/TTSServer"
 	"github.com/gordonklaus/portaudio"
+	"github.com/gorilla/websocket"
 )
 
 func main() {
-	ip := flag.String("ip", "192.168.10.50:5555", "IP:port of the server")
+	addr := flag.String("ip", "ws://nettts.mserv.kab/ws", "IP:port of the server")
 	flag.Parse()
-	conn, e := net.Dial("tcp", *ip)
+	conn, _, e := websocket.DefaultDialer.Dial(*addr, http.Header{})
 	if e != nil {
 		panic(e.Error())
 	}
@@ -32,8 +33,8 @@ func main() {
 		panic(err)
 	}
 	defer stream.Close()
-	brcon := bufio.NewReaderSize(conn, 65536)
-	bwcon := bufio.NewWriterSize(conn, 65536)
+	brcon := bufio.NewReaderSize(conn.UnderlyingConn(), 65536)
+	bwcon := bufio.NewWriterSize(conn.UnderlyingConn(), 65536)
 	if err != nil {
 		println(err.Error())
 	}
