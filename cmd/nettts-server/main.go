@@ -22,11 +22,7 @@ func wsEndpoint(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 	}
-
 	log.Println("Client Connected")
-	if err != nil {
-		log.Println(err)
-	}
 	// listen indefinitely for new messages coming
 	// through on our WebSocket connection
 	handleConn(ws)
@@ -38,14 +34,13 @@ func main() {
 }
 
 func handleConn(conn *websocket.Conn) {
-	println("New Connection")
-	ttsEngine, err := gopicotts.NewEngine(gopicotts.DefaultOptions)
 	defer conn.Close()
-	defer ttsEngine.Close()
+	ttsEngine, err := gopicotts.NewEngine(gopicotts.DefaultOptions)
 	if err != nil {
 		println(err.Error())
 		return
 	}
+	defer ttsEngine.Close()
 	conn.SetPingHandler(func(appData string) error {
 		e := conn.WriteMessage(websocket.PongMessage, []byte(appData))
 		return e
@@ -55,19 +50,14 @@ func handleConn(conn *websocket.Conn) {
 		if err != nil {
 			println("SEND ERROR " + err.Error())
 		}
-		if err != nil {
-			println("FLUSH ERROR" + err.Error())
-		}
 	})
 	for {
 		req, err := ttsserver.RecvTTSRequest(conn)
 		if err != nil {
-			println(err.Error())
 			break
 		}
 		ttsEngine.SendText(req.Request)
 		ttsEngine.FlushSendText()
 	}
-
 	println("Connection Closed!")
 }
