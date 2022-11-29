@@ -37,7 +37,6 @@ func handleConn(conn *websocket.Conn) {
 	defer conn.Close()
 	ttsEngine, err := gopicotts.NewEngine(gopicotts.DefaultOptions)
 	if err != nil {
-		println(err.Error())
 		return
 	}
 	defer ttsEngine.Close()
