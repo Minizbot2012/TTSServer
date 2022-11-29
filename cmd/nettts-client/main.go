@@ -33,8 +33,6 @@ func main() {
 		panic(err)
 	}
 	defer stream.Close()
-	brcon := bufio.NewReaderSize(conn.UnderlyingConn(), 65536)
-	bwcon := bufio.NewWriterSize(conn.UnderlyingConn(), 65536)
 	if err != nil {
 		println(err.Error())
 	}
@@ -44,12 +42,11 @@ func main() {
 		reader := bufio.NewReader(os.Stdin)
 		for {
 			buf, _ := reader.ReadString('\n')
-			err := ttsserver.SendTTSRequest(bwcon, buf)
+			err := ttsserver.SendTTSRequest(conn, buf)
 			if err != nil {
 				println("SEND ERROR " + err.Error())
 				break
 			}
-			err = bwcon.Flush()
 			if err != nil {
 				println("FLUSH ERROR" + err.Error())
 				break
@@ -58,7 +55,7 @@ func main() {
 	}()
 	go func() {
 		for {
-			resp, err := ttsserver.RecvTTSResponse(brcon)
+			resp, err := ttsserver.RecvTTSResponse(conn)
 			if err != nil {
 				println(err.Error())
 				break

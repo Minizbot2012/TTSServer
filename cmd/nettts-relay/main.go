@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/binary"
 	"flag"
@@ -47,8 +46,6 @@ func main() {
 	println("Connection opened")
 	defer conn.Close()
 	var stream *portaudio.Stream
-	brcon := bufio.NewReaderSize(conn.UnderlyingConn(), 65536)
-	bwcon := bufio.NewWriterSize(conn.UnderlyingConn(), 65536)
 	buf := new(bytes.Buffer)
 	recvAudio := func(out [][]float32) {
 		for i := range out[0] {
@@ -92,13 +89,12 @@ func main() {
 			buf := make([]byte, 1024)
 			n, _, _ := listen.ReadFrom(buf)
 			buf = buf[:n]
-			ttsserver.SendTTSRequest(bwcon, string(buf))
-			bwcon.Flush()
+			ttsserver.SendTTSRequest(conn, string(buf))
 		}
 	}()
 	go func() {
 		for {
-			resp, err := ttsserver.RecvTTSResponse(brcon)
+			resp, err := ttsserver.RecvTTSResponse(conn)
 			if err != nil {
 				fmt.Println(err.Error())
 				break

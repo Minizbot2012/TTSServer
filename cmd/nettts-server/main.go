@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bufio"
 	"log"
-	"net"
 	"net/http"
 
 	ttsserver "github.com/Minizbot2012/TTSServer"
@@ -31,7 +29,7 @@ func wsEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 	// listen indefinitely for new messages coming
 	// through on our WebSocket connection
-	handleConn(ws.UnderlyingConn())
+	handleConn(ws)
 }
 
 func main() {
@@ -39,7 +37,7 @@ func main() {
 	http.ListenAndServe(":5555", nil)
 }
 
-func handleConn(conn net.Conn) {
+func handleConn(conn *websocket.Conn) {
 	println("New Connection")
 	ttsEngine, err := gopicotts.NewEngine(gopicotts.DefaultOptions)
 	defer conn.Close()
@@ -48,20 +46,17 @@ func handleConn(conn net.Conn) {
 		println(err.Error())
 		return
 	}
-	bwcon := bufio.NewWriterSize(conn, 65536)
-	brcon := bufio.NewReaderSize(conn, 65536)
 	ttsEngine.SetOutput(func(c []int16) {
-		err := ttsserver.SendTTSResponse(bwcon, c)
+		err := ttsserver.SendTTSResponse(conn, c)
 		if err != nil {
 			println("SEND ERROR " + err.Error())
 		}
-		err = bwcon.Flush()
 		if err != nil {
 			println("FLUSH ERROR" + err.Error())
 		}
 	})
 	for {
-		req, err := ttsserver.RecvTTSRequest(brcon)
+		req, err := ttsserver.RecvTTSRequest(conn)
 		if err != nil {
 			println(err.Error())
 			break

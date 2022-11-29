@@ -1,27 +1,24 @@
 package ttsserver
 
 import (
-	"io"
-
-	"github.com/Minizbot2012/minxdr"
+	"github.com/gorilla/websocket"
 )
 
-func SendTTSRequest(conn io.Writer, Req string) error {
+func SendTTSRequest(conn *websocket.Conn, Req string) error {
 	request := &TTSRequest{
 		Request: Req,
 	}
-	_, err := minxdr.Marshal(conn, request)
-	if err != nil {
-		return err
+	e := conn.WriteJSON(request)
+	if e != nil {
+		return e
 	}
 	return nil
 }
 
-func RecvTTSRequest(conn io.Reader) (*TTSRequest, error) {
+func RecvTTSRequest(conn *websocket.Conn) (*TTSRequest, error) {
 	req := &TTSRequest{}
-	_, e := minxdr.Unmarshal(conn, req)
+	e := conn.ReadJSON(req)
 	if e != nil {
-		println("REQ: DEC: " + e.Error())
 		return nil, e
 	}
 	return req, nil
@@ -31,20 +28,20 @@ type TTSRequest struct {
 	Request string
 }
 
-func SendTTSResponse(conn io.Writer, Data []int16) error {
+func SendTTSResponse(conn *websocket.Conn, Data []int16) error {
 	response := &TTSResponse{
 		TTSData: Data,
 	}
-	_, err := minxdr.Marshal(conn, response)
-	if err != nil {
-		return err
+	e := conn.WriteJSON(response)
+	if e != nil {
+		return e
 	}
 	return nil
 }
 
-func RecvTTSResponse(conn io.Reader) (*TTSResponse, error) {
+func RecvTTSResponse(conn *websocket.Conn) (*TTSResponse, error) {
 	resp := &TTSResponse{}
-	_, e := minxdr.Unmarshal(conn, resp)
+	e := conn.ReadJSON(resp)
 	if e != nil {
 		return nil, e
 	}
